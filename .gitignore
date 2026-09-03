@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+
+# 运行数据 / 会话
+*.session
+.db
+*.db
+
+# 系统 / 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 本地资源目录（若放在项目内）
+resource/

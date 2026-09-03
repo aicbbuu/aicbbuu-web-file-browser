@@ -1,0 +1,26 @@
+[Unit]
+Description=aicbbuu网页文件浏览
+After=network.target
+
+[Service]
+Type=simple
+# 若目标系统有普通用户运行更安全，可改成：User=<实际用户名>
+# User=
+WorkingDirectory=/srv/resource
+# 通过环境变量覆盖默认配置（可选）
+#Environment=RESOURCE_PORT=60010
+#Environment=RESOURCE_USER=admin
+#Environment=RESOURCE_PASSWORD=<在此填入你的密码>
+ExecStart=/usr/bin/python3 -B /usr/local/bin/web_file_browser.py
+Restart=always
+RestartSec=3
+StartLimitInterval=60
+StartLimitBurst=10
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/srv/resource
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
