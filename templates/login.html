@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>aicbbuu网页文件浏览 · 登录</title>
+<link rel="stylesheet" href="/static/app.css?v=@@V@@">
+<link rel="icon" href="/static/favicon.svg">
+</head>
+<body class="login-body">
+@@ICONS@@
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<div class="login-wrap">
+  <div class="login-card glass">
+    <div class="login-ring"></div>
+    <div class="login-head">
+      <span class="brand-mark">◈</span>
+      <h1>aicbbuu网页文件浏览</h1>
+      <p class="login-sub">私人在线文件库 · 请验证身份</p>
+    </div>
+    @@ERROR@@
+    <form method="post" action="/login" class="login-form">
+      <label class="fl">
+        <span>用户名</span>
+        <input type="text" name="username" autofocus required autocomplete="username">
+      </label>
+      <label class="fl">
+        <span>密码</span>
+        <input type="password" name="password" required autocomplete="current-password">
+      </label>
+      <button type="submit" class="btn primary block">进入文件库</button>
+    </form>
+    <div class="login-foot">◦ 会话 12 小时 · 密码错误 5 次后限速</div>
+  </div>
+</div>
+</body>
+</html>

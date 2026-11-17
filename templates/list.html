@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>aicbbuu网页文件浏览 · @@TITLE@@</title>
+<link rel="stylesheet" href="/static/app.css?v=@@V@@">
+<link rel="icon" href="/static/favicon.svg">
+</head>
+<body>
+@@ICONS@@
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">◈</span>
+    <span class="brand-text">aicbbuu <em>网页文件浏览</em></span>
+  </div>
+  <div class="topbar-right">
+    <button class="ghost-btn" id="btnTrash" title="回收站"><svg class="ico"><use href="#i-trash"/></svg>回收站</button>
+    <span class="pill" id="sessInfo">已登录</span>
+    <button class="icon-btn" id="btnRefresh" title="刷新 (R)"><svg class="ico"><use href="#i-refresh"/></svg></button>
+    <a class="ghost-btn" href="/logout">注销</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <nav class="crumbs" id="crumbs"></nav>
+
+  <div class="overview" id="overview"></div>
+
+  <section class="toolbar glass">
+    <div class="searchbox">
+      <span class="search-ico"><svg class="ico"><use href="#i-search"/></svg></span>
+      <input id="searchInput" type="search" placeholder="搜索文件名 · 回车递归全库" autocomplete="off" spellcheck="false">
+      <button class="search-mode" id="btnContentSearch" title="同时搜索文件内容（回车生效）">Aa</button>
+      <kbd>/</kbd>
+    </div>
+    <div class="toolbar-actions">
+      <button class="btn" id="btnNewFile"><svg class="ico"><use href="#i-file-plus"/></svg>新建文件</button>
+      <button class="btn" id="btnNewFolder"><svg class="ico"><use href="#i-folder-plus"/></svg>新建文件夹</button>
+      <button class="btn primary" id="btnUpload"><svg class="ico"><use href="#i-upload"/></svg>上传</button>
+      <input type="file" id="fileInput" multiple hidden>
+      <div class="seg" id="viewToggle">
+        <button data-view="list" class="on" title="列表视图">列表</button>
+        <button data-view="grid" title="网格视图">网格</button>
+        <button data-view="water" title="瀑布流（按图片原比例）">瀑布</button>
+      </div>
+      <select id="sortSelect" class="select" title="排序字段">
+        <option value="name">名称</option>
+        <option value="time">修改时间</option>
+        <option value="size">大小</option>
+        <option value="type">类型</option>
+      </select>
+      <button class="icon-btn" id="btnOrder" title="切换升/降序">↑</button>
+    </div>
+  </section>
+
+  <section class="filearea" id="fileArea">
+    <div class="empty">正在载入…</div>
+  </section>
+
+  <div class="pager" id="pager"></div>
+</main>
+
+<footer class="statusbar">
+  <span class="st-item" id="stCount">—</span>
+  <span class="st-sep"></span>
+  <span class="st-item disk">
+    <span class="ring" id="diskRing"></span>
+    <span id="diskText">磁盘 —</span>
+  </span>
+</footer>
+
+<div class="selbar glass" id="selBar"></div>
+
+<div class="droptip" id="dropTip">松开即上传到当前目录</div>
+
+<!-- 通用模态框 -->
+<div class="modal" id="modal">
+  <div class="modal-card glass">
+    <div class="modal-head">
+      <h3 id="modalTitle">标题</h3>
+      <button class="icon-btn" id="modalClose" title="关闭 (Esc)"><svg class="ico"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot" id="modalFoot"></div>
+  </div>
+</div>
+
+<!-- 预览灯箱 -->
+<div class="lightbox" id="lightbox">
+  <div class="lb-bar">
+    <span class="lb-name" id="lbName"></span>
+    <span class="lb-meta" id="lbMeta"></span>
+    <span class="lb-actions" id="lbActions"></span>
+    <button class="icon-btn" id="lbClose" title="关闭 (Esc)"><svg class="ico"><use href="#i-close"/></svg></button>
+  </div>
+  <div class="lb-body" id="lbBody"></div>
+</div>
+
+<div class="palette" id="palette">
+  <div class="pal-card">
+    <div class="pal-input-row">
+      <span style="color:var(--faint);display:grid;place-items:center"><svg class="ico"><use href="#i-command"/></svg></span>
+      <input id="palInput" placeholder="输入搜索文件，或打 > 执行命令" autocomplete="off" spellcheck="false">
+      <kbd>Esc</kbd>
+    </div>
+    <div class="pal-body" id="palBody"></div>
+    <div class="pal-foot">↑↓ 选择 · Enter 执行 · Esc 关闭 · Ctrl+K 呼出</div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<div class="uploadbar" id="uploadBar">
+  <div class="ub-label"><span id="ubName">上传中</span><span id="ubPct">0%</span></div>
+  <div class="ub-track"><div class="ub-fill" id="ubFill"></div></div>
+</div>
+
+<script src="/static/app.js?v=@@V@@"></script>
+</body>
+</html>

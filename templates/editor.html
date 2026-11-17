@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>编辑 · @@NAME@@</title>
+<link rel="stylesheet" href="/static/app.css?v=@@V@@">
+<link rel="icon" href="/static/favicon.svg">
+</head>
+<body class="editor-body">
+@@ICONS@@
+<div class="bg-grid"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">◈</span>
+    <span class="brand-text">编辑 <em>@@NAME@@</em></span>
+  </div>
+  <div class="topbar-right">
+    <span class="pill" id="dirtyFlag">已保存</span>
+    <button class="btn" id="btnHistory"><svg class="ico"><use href="#i-clock"/></svg>历史</button>
+    <button class="btn primary" id="btnSave">保存 ⌃S</button>
+    <a class="ghost-btn" href="@@BACK@@">← 返回</a>
+  </div>
+</header>
+
+<div class="hist-panel" id="histPanel"></div>
+
+<main class="editor-wrap">
+  <div class="editor-path" id="editorPath">@@PATHDISP@@</div>
+  <div class="editor-pane">
+    <div class="gutter" id="gutter">1</div>
+    <textarea id="editor" spellcheck="false" wrap="off" placeholder="在此输入内容…">@@CONTENT@@</textarea>
+  </div>
+</main>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+const FILE_PATH = @@PATHSV@@;
+const ed = document.getElementById('editor');
+const gutter = document.getElementById('gutter');
+const dirtyFlag = document.getElementById('dirtyFlag');
+const btnSave = document.getElementById('btnSave');
+let dirty = false;
+
+function toast(msg, type) {
+  const t = document.createElement('div');
+  t.className = 'toast ' + (type || '');
+  t.textContent = msg;
+  document.getElementById('toasts').appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 2600);
+}
+function syncGutter() {
+  const lines = ed.value.split('\n').length;
+  if (gutter.dataset.n != lines) {
+    gutter.dataset.n = lines;
+    let s = '';
+    for (let i = 1; i <= lines; i++) s += i + '\n';
+    gutter.textContent = s;
+  }
+  gutter.scrollTop = ed.scrollTop;
+}
+function markDirty() {
+  if (!dirty) { dirty = true; dirtyFlag.textContent = '未保存'; dirtyFlag.classList.add('warn'); }
+  syncGutter();
+}
+ed.addEventListener('input', markDirty);
+ed.addEventListener('scroll', () => { gutter.scrollTop = ed.scrollTop; });
+ed.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = ed.selectionStart, en = ed.selectionEnd;
+    ed.value = ed.value.slice(0, s) + '  ' + ed.value.slice(en);
+    ed.selectionStart = ed.selectionEnd = s + 2;
+    markDirty();
+  }
+});
+
+async function save() {
+  btnSave.disabled = true;
+  try {
+    const r = await fetch('/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+      body: JSON.stringify({ path: FILE_PATH, content: ed.value })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || d.error) throw new Error(d.error || ('HTTP ' + r.status));
+    dirty = false;
+    dirtyFlag.textContent = '已保存 · ' + new Date().toLocaleTimeString();
+    dirtyFlag.classList.remove('warn');
+    toast(d.msg || '已保存');
+  } catch (e) {
+    toast('保存失败：' + e.message, 'error');
+  } finally {
+    btnSave.disabled = false;
+  }
+}
+btnSave.addEventListener('click', save);
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); save(); }
+});
+/* ---- 编辑历史 ---- */
+const histPanel = document.getElementById('histPanel');
+const btnHistory = document.getElementById('btnHistory');
+let histOpen = false;
+
+btnHistory.addEventListener('click', async () => {
+  if (histOpen) { histPanel.classList.remove('show'); histOpen = false; return; }
+  try {
+    const r = await fetch('/api/history?path=' + encodeURIComponent(FILE_PATH));
+    const d = await r.json();
+    const list = d.versions || [];
+    histPanel.innerHTML = list.length
+      ? `<div class="hp-head">最近 ${list.length} 个版本 · 点击载入（不会自动保存）</div>`
+        + list.map(v => `<div class="hp-item" data-ts="${v.ts}">
+              <span class="hp-time">${new Date(v.ts).toLocaleString()}</span>
+              <span class="hp-size">${(v.size / 1024).toFixed(1)}K</span>
+            </div>`).join('')
+      : '<div class="hp-empty">还没有历史版本（改过并保存之后才有）</div>';
+    histPanel.classList.add('show');
+    histOpen = true;
+    histPanel.querySelectorAll('.hp-item').forEach(el => {
+      el.onclick = () => loadVersion(+el.dataset.ts);
+    });
+  } catch (e) { toast('读取历史失败：' + e.message, 'error'); }
+});
+
+async function loadVersion(ts) {
+  try {
+    const r = await fetch('/api/history/get?path=' + encodeURIComponent(FILE_PATH) + '&ts=' + ts);
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    ed.value = d.content;
+    dirty = true;
+    dirtyFlag.textContent = '已载入历史版本（未保存）';
+    dirtyFlag.classList.add('warn');
+    syncGutter();
+    histPanel.classList.remove('show');
+    histOpen = false;
+    toast('已载入，确认后点保存');
+  } catch (e) { toast('载入失败：' + e.message, 'error'); }
+}
+
+window.addEventListener('beforeunload', e => {
+  if (dirty) { e.preventDefault(); e.returnValue = ''; }
+});
+syncGutter();
+</script>
+</body>
+</html>

@@ -1,26 +1,30 @@
 [Unit]
+# 这是手动安装时的参考模板。
+# 用 `sudo bash install.sh` 安装的话，脚本会自动生成这个文件并填好路径。
 Description=aicbbuu网页文件浏览
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
-# 若目标系统有普通用户运行更安全，可改成：User=<实际用户名>
-# User=
-WorkingDirectory=/srv/resource
-# 通过环境变量覆盖默认配置（可选）
-#Environment=RESOURCE_PORT=60010
-#Environment=RESOURCE_USER=admin
-#Environment=RESOURCE_PASSWORD=<在此填入你的密码>
-ExecStart=/usr/bin/python3 -B /usr/local/bin/web_file_browser.py
+# 改成你自己的普通用户（不要用 root 跑）
+User=<你的用户名>
+Group=<你的用户组>
+WorkingDirectory=/opt/web-file-browser
+# 密码等配置写在这里，权限 600
+EnvironmentFile=/home/<你的用户名>/.config/web-file-browser.env
+ExecStart=/usr/bin/python3 -B /opt/web-file-browser/web_file_browser.py
 Restart=always
 RestartSec=3
-StartLimitInterval=60
-StartLimitBurst=10
+
+# 监听 443 需要绑定特权端口的许可；只放宽这一项，进程仍是普通用户权限。
+# 如果你用的是 8443 之类的高位端口，这两行可以删掉。
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
 NoNewPrivileges=yes
-ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=/srv/resource
 PrivateTmp=yes
+ProtectSystem=full
 
 [Install]
 WantedBy=multi-user.target
