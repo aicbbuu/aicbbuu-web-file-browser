@@ -783,8 +783,49 @@ $('#lbActions').addEventListener('click', e => {
   }
 });
 $('#btnTrash').onclick = openTrash;
+$('#btnShares').onclick = openShares;
 $('#lbClose').onclick = closeLightbox;
 $('#lightbox').addEventListener('click', e => { if (e.target.id === 'lightbox') closeLightbox(); });
+
+/* ---------------- 已分享列表 ---------------- */
+async function openShares() {
+  let d;
+  try { d = await api('/api/shares'); }
+  catch (e) { return toast('读取分享列表失败：' + e.message, 'error'); }
+  const items = d.items || [];
+  const now = Date.now() / 1000;
+  const rows = items.map(it => {
+    const left = Math.max(0, Math.ceil((it.expires - now) / 86400));
+    return `
+    <div class="tr-row">
+      <span class="tr-ico k-doc">${ic('share', 'big')}</span>
+      <span class="tr-main"><b>${esc(it.path || '（根目录）')}</b>
+        <em title="${esc(it.url)}">${esc(it.url)}</em></span>
+      <span class="tr-meta">还有 ${left} 天</span>
+      <button class="mini" data-sh="copy" data-token="${esc(it.token)}">${ic('copy')}复制</button>
+      <button class="mini danger" data-sh="revoke" data-token="${esc(it.token)}" title="撤销这个链接">${ic('trash')}</button>
+    </div>`;
+  }).join('');
+  openModal('已分享的链接',
+    `<p>共 <strong>${d.total}</strong> 个有效链接 · 拿到链接的人可免登录只读访问</p>
+     <div class="tr-list">${rows || '<div class="tr-empty">还没有分享过任何文件</div>'}</div>`,
+    [{ text: '关闭', cls: '', onClick: closeModal }]);
+  $$('#modalBody [data-sh]').forEach(b => {
+    b.onclick = async () => {
+      const token = b.dataset.token;
+      const it = items.find(x => x.token === token);
+      if (b.dataset.sh === 'copy') {
+        copyText(it ? it.url : '');
+      } else if (b.dataset.sh === 'revoke') {
+        try {
+          await api('/share/revoke', 'POST', { token });
+          toast('已撤销');
+          closeModal();
+        } catch (e) { toast('撤销失败：' + e.message, 'error'); }
+      }
+    };
+  });
+}
 
 /* ---------------- 分享链接 ---------------- */
 const SHAREABLE = ['image', 'video', 'audio', 'pdf', 'doc', 'sheet', 'slide',
@@ -947,6 +988,7 @@ const COMMANDS = [
   { icon: 'water', label: '视图：瀑布流', hint: '命令', run: () => setView('water') },
   { icon: 'search', label: '切换全文搜索', hint: '命令', run: () => $('#btnContentSearch').click() },
   { icon: 'share', label: '分享当前目录', hint: '命令', run: () => openShare({ rel: S.path, name: S.path || '文件库根目录' }) },
+  { icon: 'share', label: '查看已分享的链接', hint: '命令', run: () => openShares() },
   { icon: 'sort', label: '排序：名称', hint: '命令', run: () => setSort('name') },
   { icon: 'clock', label: '排序：修改时间', hint: '命令', run: () => setSort('time') },
   { icon: 'sort', label: '排序：大小', hint: '命令', run: () => setSort('size') },
