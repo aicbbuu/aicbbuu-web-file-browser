@@ -154,6 +154,39 @@ _SORT_KEYS = {
 }
 
 
+_DIR_SIZE_CACHE = {}          # str(path) -> (ts, bytes, truncated)
+_DIR_SIZE_TTL = 60.0
+_DIR_SIZE_BUDGET = 3000       # 单次最多 stat 多少个文件，防大目录拖慢列表
+
+
+def dir_size_cached(p):
+    """目录递归总大小（带 60 秒缓存）。
+
+    返回 (bytes, truncated)。超过预算就停止，truncated=True 表示只统计了一部分，
+    前端显示成「≥ 3.4 MB」。
+    """
+    key = str(p)
+    now = time.time()
+    hit = _DIR_SIZE_CACHE.get(key)
+    if hit and now - hit[0] < _DIR_SIZE_TTL:
+        return hit[1], hit[2]
+    total, seen, truncated = 0, 0, False
+    for root, _dirs, files in os.walk(p):
+        for fn in files:
+            try:
+                total += os.path.getsize(os.path.join(root, fn))
+            except OSError:
+                continue
+            seen += 1
+            if seen >= _DIR_SIZE_BUDGET:
+                truncated = True
+                break
+        if truncated:
+            break
+    _DIR_SIZE_CACHE[key] = (now, total, truncated)
+    return total, truncated
+
+
 def scan_entries(path: Path):
     """读一个目录的条目（不排序）。"""
     out = []
@@ -166,12 +199,18 @@ def scan_entries(path: Path):
                 continue
             kind = kind_of(e.name, is_dir)
             children = None
+            dir_size = None
             if is_dir:
                 try:                                   # 子项数量（只读一层，够快）
                     with os.scandir(e.path) as sub:
                         children = sum(1 for _ in sub)
                 except OSError:
                     children = None
+                try:                                   # 递归总大小（带缓存，防大目录拖慢）
+                    _dsz, _dtr = dir_size_cached(Path(e.path))
+                    dir_size = {"bytes": _dsz, "truncated": _dtr}
+                except OSError:
+                    dir_size = None
             dim = None
             if kind == "image" and not is_dir:         # 瀑布流要按原始比例排版
                 dim = image_size(Path(e.path))
@@ -179,6 +218,7 @@ def scan_entries(path: Path):
                 "name": e.name,
                 "is_dir": is_dir,
                 "children": children,
+                "dir_size": dir_size,
                 "dim": list(dim) if dim else None,
                 "size": 0 if is_dir else st.st_size,
                 "mtime": st.st_mtime,

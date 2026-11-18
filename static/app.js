@@ -148,9 +148,9 @@ function prompt2(title, label, value, placeholder, onOk, okText) {
   }, 80);
 }
 
-function confirmBox(title, html, okText, onOk) {
+function confirmBox(title, html, okText, onOk, onCancel) {
   openModal(title, html, [
-    { text: '取消', cls: '', onClick: closeModal },
+    { text: '取消', cls: '', onClick: () => { closeModal(); if (onCancel) onCancel(); } },
     { text: okText || '确定', cls: 'danger', onClick: () => { closeModal(); onOk(); } },
   ]);
 }
@@ -260,11 +260,14 @@ function rowHtml(e) {
     <div class="r-chk"><input type="checkbox" class="chk" ${sel ? 'checked' : ''}></div>
     <div class="r-ico">${thumb}</div>
     <div class="r-name${e.is_dir ? ' isdir' : ''}"><a href="#" data-open>${esc(e.name)}</a>${e.is_dir ? '/' : ''}${e.hit ? `<span class="hit" title="第 ${e.hit.line} 行：${esc(e.hit.text)}">内容 ${e.hit.line}</span>` : ''}</div>
-    <div class="r-size">${e.is_dir ? `<span style="color:var(--faint)">${e.children != null ? e.children + " 项" : "—"}</span>` : fmtSize(e.size)}</div>
+    <div class="r-size">${e.is_dir
+      ? `<span style="color:var(--faint)"${e.dir_size && e.dir_size.truncated ? ' title="超过统计上限，仅显示已统计部分"' : ''}>${e.children != null ? e.children + " 项" : "—"}${e.dir_size ? ` · ${e.dir_size.truncated ? '≥' : ''}${fmtSize(e.dir_size.bytes)}` : ''}</span>`
+      : fmtSize(e.size)}</div>
     <div class="r-time">${fmtTime(e.mtime)}</div>
     <div class="r-act">
       ${e.is_dir ? `<button class="mini" data-act="open">${ic('right')}打开</button>` : `<button class="mini" data-act="preview">${ic('search')}预览</button>`}
       ${e.editable ? `<button class="mini" data-act="edit">${ic('edit')}编辑</button>` : ''}
+      <button class="mini" data-act="link" title="复制直达路径链接">${ic('link')}路径链接</button>
       <button class="mini" data-act="more" title="更多">${ic('more')}</button>
     </div>
   </div>`;
@@ -358,7 +361,7 @@ function syncSel() {
     html += `<button class="mini" data-bulk="copy">${ic('file')}复制</button>`;
     html += `<button class="mini" data-bulk="cut">${ic('file')}剪切</button>`;
     if (n === 1) html += `<button class="mini" data-bulk="rename">${ic('edit')}重命名</button>`;
-    html += `<button class="mini danger" data-bulk="delete">${ic('trash')}删除</button>`;
+    html += `<button class="mini danger" data-bulk="delete">${ic('trash')}删除(移入回收站)</button>`;
     html += `<button class="mini" data-bulk="clear">${ic('close')}取消</button>`;
   }
   if (S.clip) {
@@ -401,6 +404,7 @@ $('#fileArea').addEventListener('click', e => {
     if (act === 'open') return goInto(entry.rel);
     if (act === 'preview') return openLightbox(entry);
     if (act === 'edit') { location.href = '/edit?path=' + encodeURIComponent(entry.rel); return; }
+    if (act === 'link') return copyPathLink(entry);
     if (act === 'more') return showActions(entry);
   }
 
@@ -411,6 +415,25 @@ $('#fileArea').addEventListener('click', e => {
   e.preventDefault();
   if (entry.is_dir) goInto(entry.rel); else openLightbox(entry);
 });
+
+/* URL 段编码：只转义会破坏 URL 结构的字符，中文保持可读原样
+   （浏览器地址栏和 curl 都能直接访问中文路径） */
+function urlSeg(s) {
+  return String(s).replace(/[%#?&+ ]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+}
+
+/* 复制直达路径链接（就是地址栏那个地址） */
+async function copyPathLink(entry) {
+  const segs = entry.rel.split('/').filter(Boolean).map(urlSeg);
+  const url = location.origin + '/' + segs.join('/') + (entry.is_dir ? '/' : '');
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('路径链接已复制：' + url);
+  } catch (e) {
+    // 非 HTTPS 或浏览器拒绝剪贴板时，退回可手选的输入框
+    prompt2('路径链接（请手动复制）', '全选后 Ctrl+C', url, '', () => {});
+  }
+}
 
 function goInto(rel) {
   S.path = rel; S.page = 1; S.q = ''; S.recursive = false; S.sel.clear();
@@ -456,7 +479,7 @@ function showActions(entry) {
     { text: '下载', cls: '', onClick: () => { closeModal(); doDownload([entry.rel]); } },
     { text: '分享', cls: '', onClick: () => { closeModal(); openShare(entry); } },
     { text: '重命名', cls: '', onClick: () => { closeModal(); doRename([entry.rel]); } },
-    { text: '删除', cls: 'danger', onClick: () => { closeModal(); doDelete([entry.rel]); } },
+    { text: '删除(移入回收站)', cls: 'danger', onClick: () => { closeModal(); doDelete([entry.rel]); } },
   ]);
 }
 
@@ -493,20 +516,14 @@ async function doPaste() {
 }
 
 /* ---------------- 删除 / 重命名 / 下载 ---------------- */
-function doDelete(paths) {
+/* 删除 = 移入回收站（可还原），所以不再弹二次确认 */
+async function doDelete(paths) {
   if (!paths.length) return;
-  const preview = paths.slice(0, 6).map(esc).join('<br>');
-  const more = paths.length > 6 ? `<br>… 等共 ${paths.length} 项` : '';
-  confirmBox('确认删除',
-    `<p>将永久删除 <strong style="color:var(--err)">${paths.length}</strong> 项，不可恢复。</p><p><code>${preview}${more}</code></p>`,
-    '永久删除',
-    async () => {
-      try {
-        const d = await api('/delete', 'POST', { paths });
-        toast(d.msg || '已删除');
-        S.sel.clear(); S.page = 1; load();
-      } catch (e) { toast('删除失败：' + e.message, 'error'); }
-    });
+  try {
+    const d = await api('/delete', 'POST', { paths });
+    toast(d.msg || '已移入回收站');
+    S.sel.clear(); S.page = 1; load();
+  } catch (e) { toast('删除失败：' + e.message, 'error'); }
 }
 
 function doRename(paths) {
@@ -730,6 +747,7 @@ async function openLightbox(entry) {
     <a class="mini" href="${esc(url)}" download>${ic('download')}下载</a>
     ${isHtml ? `<button class="mini" data-lb="src">${ic('code')}<span id="srcLabel">源码</span></button>` : ''}
     ${entry.editable ? `<a class="mini" href="/edit?path=${encodeURIComponent(entry.rel)}">${ic('edit')}编辑</a>` : ''}
+    <button class="mini" data-lb="reload" title="重新载入当前文件">${ic('refresh')}刷新</button>
     ${SHAREABLE.indexOf(entry.kind) !== -1 ? `<button class="mini" data-lb="share">${ic('share')}分享</button>` : ''}`;
 
   body.innerHTML = '<div class="spin"></div>';
@@ -775,6 +793,7 @@ $('#lbActions').addEventListener('click', e => {
   const b = e.target.closest('[data-lb]');
   if (!b || !lbEntry) return;
   if (b.dataset.lb === 'share') return openShare(lbEntry);
+  if (b.dataset.lb === 'reload') { lbHtmlSource = false; return openLightbox(lbEntry); }
   if (b.dataset.lb === 'src') {
     lbHtmlSource = !lbHtmlSource;
     const lbl = $('#srcLabel');
@@ -866,7 +885,20 @@ function openShare(entry) {
 }
 
 /* ---------------- 回收站 ---------------- */
-async function trashAction(kind, id) {
+async function trashAction(kind, id, name) {
+  // 彻底删除不可恢复，必须二次确认；取消后要回到回收站（不是主目录）
+  if (kind === 'purge') {
+    return confirmBox('彻底删除',
+      `<p>将<strong style="color:var(--err)">永久删除</strong>「${esc(name || '该项')}」，无法恢复。</p>` +
+      '<p style="color:var(--faint);font-size:12px">如需保留，请改用「还原」。</p>',
+      '彻底删除',
+      () => doTrashAction('purge', id),
+      () => openTrash());          // 取消 → 重新打开回收站
+  }
+  return doTrashAction(kind, id);
+}
+
+async function doTrashAction(kind, id) {
   try {
     const d = kind === 'restore'
       ? await api('/trash/restore', 'POST', { ids: [id] })
@@ -910,7 +942,8 @@ async function openTrash() {
       { text: '关闭', cls: '', onClick: closeModal },
     ].concat(items.length ? [{ text: '清空回收站', cls: 'danger', onClick: confirmEmpty }] : []));
   $$('#modalBody [data-tr]').forEach(b => {
-    b.onclick = () => trashAction(b.dataset.tr, b.dataset.id);
+    b.onclick = () => trashAction(b.dataset.tr, b.dataset.id,
+      b.closest('.tr-row')?.querySelector('.tr-main b')?.textContent || '');
   });
 }
 

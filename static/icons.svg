@@ -23,8 +23,8 @@
 <symbol id="i-more" viewBox="0 0 24 24"><g fill="currentColor" stroke="none"><circle cx="5.5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18.5" cy="12" r="1.5"/></g></symbol>
 <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="7"/><path d="M16 16l5 5"/></symbol>
 <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11.5a8 8 0 1 0-1.8 6"/><path d="M20 5v6h-6"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13.5a4.6 4.6 0 0 0 6.9.5l2.2-2.2a4.8 4.8 0 0 0-6.8-6.8l-1.2 1.2"/><path d="M14 10.5a4.6 4.6 0 0 0-6.9-.5l-2.2 2.2a4.8 4.8 0 0 0 6.8 6.8l1.2-1.2"/></symbol>
 <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5.5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="18.5" r="2.6"/><path d="M8.3 10.7l7.4-3.9M8.3 13.3l7.4 3.9"/></symbol>
-<symbol id="i-cast" viewBox="0 0 24 24"><path d="M21.5 8.5V6a2 2 0 0 0-2-2h-15a2 2 0 0 0-2 2v2.5"/><path d="M2.5 12.5a9 9 0 0 1 9 9M2.5 16.5a5 5 0 0 1 5 5"/><circle cx="3.2" cy="20.5" r="1.2" fill="currentColor" stroke="none"/></symbol>
 <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
 <symbol id="i-check" viewBox="0 0 24 24"><path d="M4.5 12.5l5 5L20 6.5"/></symbol>
 <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 5.5L8.5 12l6.5 6.5"/></symbol>

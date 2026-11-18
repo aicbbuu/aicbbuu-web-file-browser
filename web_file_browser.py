@@ -207,7 +207,23 @@ class Handler(SimpleHTTPRequestHandler):
         if length > MAX_JSON_BODY:
             raise ValueError("请求体过大")
         raw = self.rfile.read(length)
+        self._body_read = getattr(self, "_body_read", 0) + len(raw)
         return json.loads(raw.decode("utf-8"))
+
+    def _drain_body(self):
+        """丢掉 handler 没读完的请求体。
+
+        HTTP/1.1 是长连接：POST 里没消费的字节会留在 socket 中，被当成下一个请求的
+        起始行解析 → 下一个请求直接 501/400（POST /trash/empty 后紧跟 GET /api/list
+        必返回 501，刷新网页又正常，因为刷新会新建连接）。
+        """
+        try:
+            total = int(self.headers.get("Content-Length", 0) or 0)
+            left = total - getattr(self, "_body_read", 0)
+            if left > 0:
+                self.rfile.read(left)
+        except Exception:                                  # noqa: BLE001
+            self.close_connection = True
 
     # ================= 静态资源（免认证） =================
     def _serve_static(self, rel, head_only=False):
@@ -577,12 +593,18 @@ class Handler(SimpleHTTPRequestHandler):
         fn = routes.get(raw_path)
         if not fn:
             return self.send_error(404)
+        self._body_read = 0                    # keep-alive 复用实例，每次请求重置
         try:
             return fn()
         except ValueError as exc:
             return self._send_json_error(400, str(exc))
         except Exception as exc:                          # noqa: BLE001
             return self._send_json_error(500, "操作失败: {}".format(exc))
+        finally:
+            # 上传是流式自行消费的，跳过；其余一律把没读完的 body 丢掉，
+            # 否则残留字节会污染长连接上的下一个请求（见 _drain_body 注释）
+            if raw_path != "/upload":
+                self._drain_body()
 
     # ---------- 上传 ----------
     def _handle_upload(self):
